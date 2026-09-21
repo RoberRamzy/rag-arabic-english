@@ -1,0 +1,14 @@
+=== THE FIXED (BALANCED + RERANKED) DISPARITY MATRIX ===
+                    hit@10   mrr
+user_lang doc_lang              
+ar        ar          4.28  2.61
+          en          7.38  3.55
+en        ar          1.18  0.43
+          en          2.83  2.42
+=== THE UN-SPLIT + PURE CUDA RERANKED DISPARITY MATRIX ===
+                    hit@10   mrr
+user_lang doc_lang              
+ar        ar          3.95  2.61
+          en          8.31  3.65
+en        ar          0.89  0.26
+          en          4.09  2.58
