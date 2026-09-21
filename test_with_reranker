@@ -1,0 +1,67 @@
+import os
+import pandas as pd
+from llama_index.core import Document, VectorStoreIndex, Settings
+from llama_index.embeddings.huggingface import HuggingFaceEmbedding
+from llama_index.core.retrievers import BaseRetriever
+from transformers import AutoModelForSequenceClassification, AutoTokenizer
+import torch
+from tqdm import tqdm
+
+print("Initializing BGE-M3 Embedder on GPU (CUDA)...")
+Settings.embed_model = HuggingFaceEmbedding(model_name="BAAI/bge-m3", device="cuda")
+
+print("Initializing BGE-Reranker on CPU to save VRAM footprint...")
+RERANKER_NAME = "BAAI/bge-reranker-v2-m3"
+rerank_tokenizer = AutoTokenizer.from_pretrained(RERANKER_NAME)
+rerank_model = AutoModelForSequenceClassification.from_pretrained(RERANKER_NAME).to("cpu").eval()
+
+# --- Custom Un-Split Reranked Retriever ---
+class NormalRerankedRetriever(BaseRetriever):
+    def __init__(self, corpus, similarity_top_k=10):
+        super().__init__()
+        # Keep everything in ONE unified index (just like your first code)
+        documents = [
+            Document(text=doc["text"], doc_id=doc["id"], metadata={"law_id": doc["id"], "lang": doc["lang"]})
+            for doc in corpus
+        ]
+        self.base_retriever = VectorStoreIndex.from_documents(documents).as_retriever(similarity_top_k=similarity_top_k)
+        self.final_top_k = similarity_top_k
+
+    def _retrieve(self, query_bundle):
+        query_str = query_bundle.query_str
+        
+        # Grabs top 10 items from the standard mixed index
+        candidates = self.base_retriever.retrieve(query_str)
+        
+        if not candidates:
+            return []
+            
+        # Rerank the top 10 pool using cross-attention on the CPU
+        pairs = [[query_str, node.node.text] for node in candidates]
+        with torch.no_grad():
+            inputs = rerank_tokenizer(pairs, padding=True, truncation=True, return_tensors='pt', max_length=512).to("cpu")
+            scores = rerank_model(**inputs).logits.view(-1).numpy()
+            
+        for node, score in zip(candidates, scores):
+            node.score = float(score)
+            
+        candidates.sort(key=lambda x: x.score, reverse=True)
+        return candidates[:self.final_top_k]
+
+if __name__ == "__main__":
+    from test import load_data_cross_lingual_align, evaluate_pipeline  
+    
+    CORPUS_FILE = "corpora/legal_corpus.parquet"
+    BENCHMARK_FILE = "benchmarks/legal_benchmark.parquet"
+    
+    corpus, queries = load_data_cross_lingual_align(CORPUS_FILE, BENCHMARK_FILE)
+    
+    print("\nBuilding Normal Unified Index...")
+    normal_reranked_retriever = NormalRerankedRetriever(corpus, similarity_top_k=10)
+    
+    print("\nRunning RAG evaluations on Un-Split Reranked Index...")
+    df_results = evaluate_pipeline(normal_reranked_retriever, queries)
+    
+    matrix = df_results.groupby(["user_lang", "doc_lang"])[["hit@10", "mrr"]].mean() * 100
+    print("\n=== THE UN-SPLIT + RERANKED DISPARITY MATRIX ===")
+    print(matrix.round(2))
