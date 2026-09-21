@@ -1,10 +1,12 @@
-=== THE FIXED (BALANCED + RERANKED) DISPARITY MATRIX ===
+for legal dataset:
+=== THE CROSS-LINGUAL DISPARITY BIAS MATRIX ===
                     hit@10   mrr
 user_lang doc_lang              
-ar        ar          4.28  2.61
-          en          7.38  3.55
-en        ar          1.18  0.43
-          en          2.83  2.42
+ar        ar          4.28  2.44
+          en          7.08  3.13
+en        ar          1.48  0.39
+          en          4.40  2.06
+
 === THE UN-SPLIT + PURE CUDA RERANKED DISPARITY MATRIX ===
                     hit@10   mrr
 user_lang doc_lang              
@@ -12,3 +14,36 @@ ar        ar          3.95  2.61
           en          8.31  3.65
 en        ar          0.89  0.26
           en          4.09  2.58
+
+=== THE FIXED (BALANCED + RERANKED) DISPARITY MATRIX ===
+                    hit@10   mrr
+user_lang doc_lang              
+ar        ar          4.28  2.61
+          en          7.38  3.55
+en        ar          1.18  0.43
+          en          2.83  2.42
+
+
+for travel dataset:
+=== THE CROSS-LINGUAL DISPARITY BIAS MATRIX ===
+                    hit@10    mrr
+user_lang doc_lang               
+ar        ar         19.92  11.20
+          en          8.21   1.62
+en        ar         13.47   2.91
+          en         10.79   3.93
+
+=== THE UN-SPLIT + RERANKED DISPARITY MATRIX ===
+                    hit@10    mrr
+user_lang doc_lang               
+ar        ar         17.80  11.44
+          en          7.48   2.82
+en        ar          9.80   3.57
+          en         10.07   3.53
+=== THE FIXED (BALANCED + RERANKED) DISPARITY MATRIX ===
+                    hit@10    mrr
+user_lang doc_lang               
+ar        ar         19.07  12.16
+          en         11.68   4.45
+en        ar         14.69   3.48
+          en         13.67   3.88

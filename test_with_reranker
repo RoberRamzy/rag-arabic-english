@@ -7,40 +7,104 @@ from transformers import AutoModelForSequenceClassification, AutoTokenizer
 import torch
 from tqdm import tqdm
 
-print("Initializing BGE-M3 Embedder on GPU (CUDA)...")
-Settings.embed_model = HuggingFaceEmbedding(model_name="BAAI/bge-m3", device="cuda")
 
-print("Initializing BGE-Reranker on CPU to save VRAM footprint...")
+print(" Loading BGE-M3 Embedder ..")
+Settings.embed_model = HuggingFaceEmbedding(
+    model_name="BAAI/bge-m3", 
+    device="cuda"
+)
+
+print(" Loading BGE-Reranker-v2-m3")
 RERANKER_NAME = "BAAI/bge-reranker-v2-m3"
 rerank_tokenizer = AutoTokenizer.from_pretrained(RERANKER_NAME)
-rerank_model = AutoModelForSequenceClassification.from_pretrained(RERANKER_NAME).to("cpu").eval()
 
-# --- Custom Un-Split Reranked Retriever ---
+# Force the reranker to your GPU with half-precision for fast cross-attention matrix math
+rerank_model = AutoModelForSequenceClassification.from_pretrained(
+    RERANKER_NAME,
+    torch_dtype=torch.float16
+).to("cuda").eval()
+
+
+# --- 2. SELF-ALIGNING DATA ENGINE ---
+def clean_and_extract_keywords(text, num_words=6):
+    words = [w for w in text.replace(",", "").replace(".", "").replace(":", "").split() if len(w) > 4]
+    return words[:num_words]
+
+def load_data_cross_lingual_align(corpus_path, benchmark_path):
+    df_corp = pd.read_parquet(corpus_path)
+    df_bench = pd.read_parquet(benchmark_path)
+    
+    id_col = "law_id" if "law_id" in df_corp.columns else "doc_id"
+    
+    corpus_data = []
+    for _, row in df_corp.iterrows():
+        corpus_data.append({
+            "id": str(row[id_col]), 
+            "text": row["content"],
+            "lang": "en" if row["language"] in ["en", "english"] else "ar"
+        })
+        
+    queries_data = []
+    print("Aligning benchmark queries via parallel text overlap")
+    for idx, row in tqdm(df_bench.iterrows(), total=len(df_bench)):
+        q_text = row["question"]
+        a_text = row["answer"]
+        d_lang = "en" if row["supporting_document_language"] in ["en", "english"] else "ar"
+        q_lang = "en" if row["user_language"] in ["en", "english"] else "ar"
+        
+        sample_keywords = clean_and_extract_keywords(a_text)
+        matched_id = None
+        for doc in corpus_data:
+            matches = sum(1 for kw in sample_keywords if kw in doc["text"])
+            if matches >= 2:
+                matched_id = doc["id"]
+                break
+                
+        if not matched_id:
+            q_keywords = clean_and_extract_keywords(q_text)
+            for doc in corpus_data:
+                matches = sum(1 for kw in q_keywords if kw in doc["text"])
+                if matches >= 2:
+                    matched_id = doc["id"]
+                    break
+                    
+        if not matched_id:
+            matched_id = str(df_corp.iloc[idx % len(df_corp)][id_col])
+            
+        queries_data.append({
+            "query": q_text,
+            "query_lang": q_lang,
+            "expected_doc_id": matched_id,
+            "expected_doc_lang": d_lang
+        })
+        
+    return corpus_data, queries_data
+
+
+# --- 3. CUSTOM UN-SPLIT FULL CUDA RETRIEVER ---
 class NormalRerankedRetriever(BaseRetriever):
     def __init__(self, corpus, similarity_top_k=10):
         super().__init__()
-        # Keep everything in ONE unified index (just like your first code)
         documents = [
             Document(text=doc["text"], doc_id=doc["id"], metadata={"law_id": doc["id"], "lang": doc["lang"]})
             for doc in corpus
         ]
+        # Single index containing all document languages
         self.base_retriever = VectorStoreIndex.from_documents(documents).as_retriever(similarity_top_k=similarity_top_k)
         self.final_top_k = similarity_top_k
 
     def _retrieve(self, query_bundle):
         query_str = query_bundle.query_str
-        
-        # Grabs top 10 items from the standard mixed index
         candidates = self.base_retriever.retrieve(query_str)
         
         if not candidates:
             return []
             
-        # Rerank the top 10 pool using cross-attention on the CPU
+        # Rerank on GPU
         pairs = [[query_str, node.node.text] for node in candidates]
         with torch.no_grad():
-            inputs = rerank_tokenizer(pairs, padding=True, truncation=True, return_tensors='pt', max_length=512).to("cpu")
-            scores = rerank_model(**inputs).logits.view(-1).numpy()
+            inputs = rerank_tokenizer(pairs, padding=True, truncation=True, return_tensors='pt', max_length=512).to("cuda")
+            scores = rerank_model(**inputs).logits.view(-1).float().cpu().numpy()
             
         for node, score in zip(candidates, scores):
             node.score = float(score)
@@ -48,20 +112,46 @@ class NormalRerankedRetriever(BaseRetriever):
         candidates.sort(key=lambda x: x.score, reverse=True)
         return candidates[:self.final_top_k]
 
+
+# --- 4. ACCELERATED MATRIX EVALUATION PIPELINE ---
+def evaluate_pipeline(retriever, queries):
+    results = []
+    for q in tqdm(queries, desc=" Pure CUDA Cross-Lingual Evaluation"):
+        retrieved_nodes = retriever.retrieve(q["query"])
+        expected_id = q["expected_doc_id"]
+        
+        hit = 0
+        mrr = 0.0
+        for rank, node in enumerate(retrieved_nodes, start=1):
+            ref_id = str(node.node.ref_doc_id)
+            meta_id = str(node.node.metadata.get("law_id", ""))
+            
+            if ref_id == str(expected_id) or meta_id == str(expected_id):
+                hit = 1
+                mrr = 1.0 / rank
+                break
+                
+        results.append({
+            "user_lang": q["query_lang"],
+            "doc_lang": q["expected_doc_lang"],
+            "hit@10": hit,
+            "mrr": mrr
+        })
+    return pd.DataFrame(results)
+
 if __name__ == "__main__":
-    from test import load_data_cross_lingual_align, evaluate_pipeline  
-    
-    CORPUS_FILE = "corpora/legal_corpus.parquet"
-    BENCHMARK_FILE = "benchmarks/legal_benchmark.parquet"
+    # Ensure any stuck zombie python processes are flushed before executing this file via terminal
+    CORPUS_FILE = "corpora/travel_corpus.parquet"
+    BENCHMARK_FILE = "benchmarks/travel_benchmark.parquet"
     
     corpus, queries = load_data_cross_lingual_align(CORPUS_FILE, BENCHMARK_FILE)
     
-    print("\nBuilding Normal Unified Index...")
+    print("\nBuilding Normal Unified Vector Store on GPU Core...")
     normal_reranked_retriever = NormalRerankedRetriever(corpus, similarity_top_k=10)
     
-    print("\nRunning RAG evaluations on Un-Split Reranked Index...")
+    print("\nExecuting evaluations across all 4 pathways...")
     df_results = evaluate_pipeline(normal_reranked_retriever, queries)
     
     matrix = df_results.groupby(["user_lang", "doc_lang"])[["hit@10", "mrr"]].mean() * 100
-    print("\n=== THE UN-SPLIT + RERANKED DISPARITY MATRIX ===")
+    print("\n=== THE UN-SPLIT +  RERANKED DISPARITY MATRIX ===")
     print(matrix.round(2))

@@ -57,8 +57,8 @@ class BalancedRerankedRetriever(BaseRetriever):
 if __name__ == "__main__":
     from test import load_data_cross_lingual_align, evaluate_pipeline  # Re-uses your working text loader
     
-    CORPUS_FILE = "corpora/legal_corpus.parquet"
-    BENCHMARK_FILE = "benchmarks/legal_benchmark.parquet"
+    CORPUS_FILE = "corpora/travel_corpus.parquet"
+    BENCHMARK_FILE = "benchmarks/travel_benchmark.parquet"
     
     corpus, queries = load_data_cross_lingual_align(CORPUS_FILE, BENCHMARK_FILE)
     

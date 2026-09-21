@@ -103,8 +103,8 @@ def evaluate_pipeline(retriever, queries):
     return pd.DataFrame(results)
 
 if __name__ == "__main__":
-    CORPUS_FILE = "corpora/legal_corpus.parquet"
-    BENCHMARK_FILE = "benchmarks/legal_benchmark.parquet"
+    CORPUS_FILE = "corpora/travel_corpus.parquet"
+    BENCHMARK_FILE = "benchmarks/travel_benchmark.parquet"
     
     corpus, queries = load_data_cross_lingual_align(CORPUS_FILE, BENCHMARK_FILE)
     retriever = build_index(corpus)
