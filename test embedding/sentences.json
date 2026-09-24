@@ -1,0 +1,39 @@
+{
+  "sentences": [
+    {
+      "id": 1,
+      "topic": "data_analysis",
+      "ar": "تحليل البيانات يتطلب مذاكرة أدوات مثل Excel",
+      "en": "Data analysis requires studying tools such as Excel",
+      "mixed": "data analysis تتطلب مذاكرة أدوات زي Excel"
+    },
+    {
+      "id": 2,
+      "topic": "ai",
+      "ar": "الذكاء الاصطناعي غيّر طريقة تعاملنا مع التكنولوجيا",
+      "en": "Artificial intelligence changed the way we deal with technology",
+      "mixed": "الـ AI غيّر الطريقة اللي بنتعامل بيها مع technology"
+    },
+    {
+      "id": 3,
+      "topic": "studying",
+      "ar": "الطالب لازم يذاكر كويس عشان ينجح في الامتحان",
+      "en": "The student must study well to pass the exam",
+      "mixed": "الـ student لازم يذاكر كويس عشان يعدي الـ exam"
+    },
+    {
+      "id": 4,
+      "topic": "business",
+      "ar": "الشركة قررت تطلق منتج جديد الشهر الجاي",
+      "en": "The company decided to launch a new product next month",
+      "mixed": "الـ company قررت تعمل launch لمنتج جديد الشهر الجاي"
+    },
+    {
+      "id": 5,
+      "topic": "reading",
+      "ar": "القراءة اليومية بتحسن مهارات اللغة بشكل كبير",
+      "en": "Daily reading significantly improves language skills",
+      "mixed": "الـ daily reading بتحسن الـ language skills بشكل كبير"
+    }
+  ]
+}
