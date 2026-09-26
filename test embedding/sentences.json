@@ -5,6 +5,7 @@
       "topic": "data_analysis",
       "ar": "تحليل البيانات يتطلب مذاكرة أدوات مثل Excel",
       "en": "Data analysis requires studying tools such as Excel",
+      "fr": "L'analyse des données nécessite l'apprentissage d'outils tels qu'Excel",
       "mixed": "data analysis تتطلب مذاكرة أدوات زي Excel"
     },
     {
@@ -12,6 +13,7 @@
       "topic": "ai",
       "ar": "الذكاء الاصطناعي غيّر طريقة تعاملنا مع التكنولوجيا",
       "en": "Artificial intelligence changed the way we deal with technology",
+      "fr": "L'intelligence artificielle a changé notre façon d'interagir avec la technologie",
       "mixed": "الـ AI غيّر الطريقة اللي بنتعامل بيها مع technology"
     },
     {
@@ -19,6 +21,7 @@
       "topic": "studying",
       "ar": "الطالب لازم يذاكر كويس عشان ينجح في الامتحان",
       "en": "The student must study well to pass the exam",
+      "fr": "L'étudiant doit bien étudier pour réussir l'examen",
       "mixed": "الـ student لازم يذاكر كويس عشان يعدي الـ exam"
     },
     {
@@ -26,6 +29,7 @@
       "topic": "business",
       "ar": "الشركة قررت تطلق منتج جديد الشهر الجاي",
       "en": "The company decided to launch a new product next month",
+      "fr": "L'entreprise a décidé de lancer un nouveau produit le mois prochain",
       "mixed": "الـ company قررت تعمل launch لمنتج جديد الشهر الجاي"
     },
     {
@@ -33,6 +37,7 @@
       "topic": "reading",
       "ar": "القراءة اليومية بتحسن مهارات اللغة بشكل كبير",
       "en": "Daily reading significantly improves language skills",
+      "fr": "La lecture quotidienne améliore considérablement les compétences linguistiques",
       "mixed": "الـ daily reading بتحسن الـ language skills بشكل كبير"
     }
   ]
